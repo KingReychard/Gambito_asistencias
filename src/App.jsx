@@ -570,6 +570,7 @@ export default function App() {
       const payload = {
         fecha: formData.fecha,
         maestroId: formData.maestroId,
+        maestroNombre: data.maestros.find(m => m.id === formData.maestroId)?.nombre,
         grupoId: formData.grupoId,
         grupoCodigo: grupo?.codigo,
         tipo: formData.tipo,
