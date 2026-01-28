@@ -99,6 +99,27 @@ function Select({ label, value, onChange, options, icon: Icon }) {
   )
 }
 
+function DateInput({ label, value, onChange, icon: Icon }) {
+  return (
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gambito-gray">{label}</label>
+      <div className="relative">
+        {Icon && (
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gambito-gray pointer-events-none">
+            <Icon className="w-5 h-5" />
+          </div>
+        )}
+        <input
+          type="date"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={`w-full ${Icon ? 'pl-11' : 'pl-4'} pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-gambito-dark font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-gambito-green/30 focus:border-gambito-green transition-all`}
+        />
+      </div>
+    </div>
+  )
+}
+
 function NumberInput({ label, value, onChange, min = 1, max = 10 }) {
   return (
     <div className="space-y-2">
@@ -182,10 +203,11 @@ function AlumnoItem({ alumno, asistio, onToggle }) {
 function PantallaConfiguracion({ onNext, formData, setFormData, data }) {
   const { maestros, grupos, temas } = data
   
-  // Filtrar grupos según el día actual y el maestro
-  const hoy = new Date().getDay()
-  const esLunesMiercoles = hoy === 1 || hoy === 3
-  const esMartesJueves = hoy === 2 || hoy === 4
+  // Filtrar grupos según el día de la fecha seleccionada y el maestro
+  const fechaSeleccionada = new Date(formData.fecha + 'T12:00:00')
+  const diaSemana = fechaSeleccionada.getDay()
+  const esLunesMiercoles = diaSemana === 1 || diaSemana === 3
+  const esMartesJueves = diaSemana === 2 || diaSemana === 4
   
   const gruposFiltrados = grupos.filter(g => {
     if (formData.maestroId && g.maestroId !== formData.maestroId) return false
@@ -207,27 +229,27 @@ function PantallaConfiguracion({ onNext, formData, setFormData, data }) {
     { value: 'Torneo', label: 'Torneo', icon: <Trophy className="w-4 h-4" /> },
   ]
   
-  const canContinue = formData.grupoId && formData.tipo && 
+  const canContinue = formData.fecha && formData.grupoId && formData.tipo && 
     (formData.tipo !== 'Temario' || (formData.temaId && formData.sesion && formData.totalSesiones))
   
   return (
     <div className="space-y-4 animate-fade-in">
       {/* Fecha */}
       <Card className="p-4">
-        <div className="flex items-center gap-3 text-gambito-dark">
-          <Calendar className="w-5 h-5 text-gambito-green" />
-          <div>
-            <p className="text-sm text-gambito-gray">Fecha de la clase</p>
-            <p className="font-semibold">
-              {new Date().toLocaleDateString('es-MX', { 
-                weekday: 'long', 
-                day: 'numeric', 
-                month: 'long',
-                year: 'numeric'
-              })}
-            </p>
-          </div>
-        </div>
+        <DateInput
+          label="Fecha de la clase"
+          value={formData.fecha}
+          onChange={(v) => setFormData({ ...formData, fecha: v, grupoId: '' })}
+          icon={Calendar}
+        />
+        <p className="mt-2 text-xs text-gambito-gray">
+          {new Date(formData.fecha + 'T12:00:00').toLocaleDateString('es-MX', { 
+            weekday: 'long', 
+            day: 'numeric', 
+            month: 'long',
+            year: 'numeric'
+          })}
+        </p>
       </Card>
       
       {/* Maestro */}
@@ -256,6 +278,11 @@ function PantallaConfiguracion({ onNext, formData, setFormData, data }) {
         {grupoSeleccionado && (
           <p className="mt-2 text-sm text-gambito-gray">
             Nivel: {grupoSeleccionado.nivel}
+          </p>
+        )}
+        {formData.fecha && gruposFiltrados.length === 0 && (
+          <p className="mt-2 text-sm text-gambito-orange">
+            ⚠️ No hay grupos para este día de la semana
           </p>
         )}
       </Card>
@@ -474,6 +501,7 @@ export default function App() {
   const [data, setData] = useState(null)
   
   const [formData, setFormData] = useState({
+    fecha: new Date().toISOString().split('T')[0], // Fecha de hoy por default
     maestroId: localStorage.getItem('gambito_maestro') || '',
     grupoId: '',
     tipo: '',
@@ -533,7 +561,7 @@ export default function App() {
         : null
       
       const payload = {
-        fecha: new Date().toISOString().split('T')[0],
+        fecha: formData.fecha, // Usar la fecha seleccionada
         maestroId: formData.maestroId,
         grupoId: formData.grupoId,
         grupoCodigo: grupo?.codigo,
@@ -572,6 +600,7 @@ export default function App() {
   const handleReset = () => {
     setFormData(prev => ({
       ...prev,
+      fecha: new Date().toISOString().split('T')[0], // Reset a hoy
       grupoId: '',
       tipo: '',
       temaId: '',
@@ -647,3 +676,4 @@ export default function App() {
     </div>
   )
 }
+
