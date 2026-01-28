@@ -26,6 +26,20 @@ const CONFIG = {
 }
 
 // =============================================================================
+// UTILIDADES
+// =============================================================================
+
+// Obtener fecha de hoy en timezone de México (UTC-6)
+function getFechaHoyMexico() {
+  return new Date().toLocaleString('en-CA', { 
+    timeZone: 'America/Mexico_City',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).split(',')[0]
+}
+
+// =============================================================================
 // COMPONENTES UI
 // =============================================================================
 
@@ -229,7 +243,7 @@ function PantallaConfiguracion({ onNext, formData, setFormData, data }) {
     { value: 'Torneo', label: 'Torneo', icon: <Trophy className="w-4 h-4" /> },
   ]
   
-  const canContinue = formData.fecha && formData.grupoId && formData.tipo && 
+  const canContinue = formData.fecha && formData.maestroId && formData.grupoId && formData.tipo && 
     (formData.tipo !== 'Temario' || (formData.temaId && formData.sesion && formData.totalSesiones))
   
   return (
@@ -280,7 +294,7 @@ function PantallaConfiguracion({ onNext, formData, setFormData, data }) {
             Nivel: {grupoSeleccionado.nivel}
           </p>
         )}
-        {formData.fecha && gruposFiltrados.length === 0 && (
+        {formData.maestroId && formData.fecha && gruposFiltrados.length === 0 && (
           <p className="mt-2 text-sm text-gambito-orange">
             ⚠️ No hay grupos para este día de la semana
           </p>
@@ -494,15 +508,15 @@ function PantallaCargando() {
 // =============================================================================
 
 export default function App() {
-  const [pantalla, setPantalla] = useState('cargando') // cargando, config, asistencia, exito, error
+  const [pantalla, setPantalla] = useState('cargando')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [notas, setNotas] = useState('')
   const [data, setData] = useState(null)
   
   const [formData, setFormData] = useState({
-    fecha: new Date().toISOString().split('T')[0], // Fecha de hoy por default
-    maestroId: localStorage.getItem('gambito_maestro') || '',
+    fecha: getFechaHoyMexico(), // ✅ Fecha en timezone México (UTC-6)
+    maestroId: '', // ✅ Sin maestro pre-seleccionado
     grupoId: '',
     tipo: '',
     temaId: '',
@@ -531,20 +545,13 @@ export default function App() {
     }
   }
   
-  // Guardar maestro en localStorage
-  useEffect(() => {
-    if (formData.maestroId) {
-      localStorage.setItem('gambito_maestro', formData.maestroId)
-    }
-  }, [formData.maestroId])
-  
   // Inicializar asistencia cuando cambia el grupo
   useEffect(() => {
     if (formData.grupoId && data) {
       const alumnosDelGrupo = data.alumnos.filter(a => a.grupoId === formData.grupoId)
       const inicial = {}
       alumnosDelGrupo.forEach(alumno => {
-        inicial[alumno.id] = true // Todos presentes por default
+        inicial[alumno.id] = true
       })
       setAsistencia(inicial)
     }
@@ -561,7 +568,7 @@ export default function App() {
         : null
       
       const payload = {
-        fecha: formData.fecha, // Usar la fecha seleccionada
+        fecha: formData.fecha,
         maestroId: formData.maestroId,
         grupoId: formData.grupoId,
         grupoCodigo: grupo?.codigo,
@@ -598,15 +605,15 @@ export default function App() {
   }
   
   const handleReset = () => {
-    setFormData(prev => ({
-      ...prev,
-      fecha: new Date().toISOString().split('T')[0], // Reset a hoy
+    setFormData({
+      fecha: getFechaHoyMexico(), // ✅ Reset a fecha actual en México
+      maestroId: '', // ✅ Sin maestro pre-seleccionado
       grupoId: '',
       tipo: '',
       temaId: '',
       sesion: 1,
       totalSesiones: 2,
-    }))
+    })
     setAsistencia({})
     setNotas('')
     setPantalla('config')
@@ -667,7 +674,6 @@ export default function App() {
         )}
       </main>
       
-      {/* Footer */}
       <footer className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur border-t border-gray-100 py-2 text-center">
         <p className="text-xs text-gambito-gray">
           Gambito © {new Date().getFullYear()}
@@ -676,4 +682,3 @@ export default function App() {
     </div>
   )
 }
-
