@@ -17,86 +17,12 @@ import {
 } from 'lucide-react'
 
 // =============================================================================
-// CONFIGURACIÓN - CAMBIAR ESTOS VALORES
+// CONFIGURACIÓN - URLs REALES
 // =============================================================================
 const CONFIG = {
-  // URL del webhook de n8n - CAMBIAR POR TU URL REAL
-  WEBHOOK_URL: 'https://tu-n8n.railway.app/webhook/registrar-clase',
-  
-  // PIN de acceso (opcional, dejar vacío para desactivar)
+  DATA_URL: 'https://primary-production-d866f.up.railway.app/webhook/obtener-datos-clase',
+  WEBHOOK_URL: 'https://primary-production-d866f.up.railway.app/webhook/registrar-clase',
   ACCESS_PIN: '',
-}
-
-// =============================================================================
-// DATOS MOCK - ESTOS SE REEMPLAZARÁN CON DATOS DE N8N
-// =============================================================================
-const MOCK_DATA = {
-  maestros: [
-    { id: 'ricardo', nombre: 'Ricardo' },
-    { id: 'alicia', nombre: 'Alicia' },
-    { id: 'valeria', nombre: 'Valeria' },
-  ],
-  grupos: [
-    { id: 'g1', codigo: 'P101', nivel: 'Peón 1', dias: 'Lun/Mié', horario: '6:15 PM', maestroId: 'alicia', alumnos: ['a1', 'a2', 'a3', 'a4', 'a5'] },
-    { id: 'g2', codigo: 'P102', nivel: 'Peón 1', dias: 'Mar/Jue', horario: '6:15 PM', maestroId: 'valeria', alumnos: ['a6', 'a7', 'a8', 'a9'] },
-    { id: 'g3', codigo: 'C201', nivel: 'Caballo 1', dias: 'Lun/Mié', horario: '7:30 PM', maestroId: 'ricardo', alumnos: ['a10', 'a11', 'a12', 'a13', 'a14'] },
-    { id: 'g4', codigo: 'C202', nivel: 'Caballo 1', dias: 'Mar/Jue', horario: '7:30 PM', maestroId: 'alicia', alumnos: ['a15', 'a16', 'a17', 'a18'] },
-    { id: 'g5', codigo: 'A301', nivel: 'Alfil 1', dias: 'Lun/Mié', horario: '6:15 PM', maestroId: 'ricardo', alumnos: ['a19', 'a20', 'a21'] },
-  ],
-  alumnos: [
-    { id: 'a1', nombre: 'Santiago Pérez' },
-    { id: 'a2', nombre: 'Valentina García' },
-    { id: 'a3', nombre: 'Mateo López' },
-    { id: 'a4', nombre: 'Isabella Martínez' },
-    { id: 'a5', nombre: 'Sebastián Rodríguez' },
-    { id: 'a6', nombre: 'Sofía Hernández' },
-    { id: 'a7', nombre: 'Diego González' },
-    { id: 'a8', nombre: 'Camila Sánchez' },
-    { id: 'a9', nombre: 'Emiliano Torres' },
-    { id: 'a10', nombre: 'Regina Flores' },
-    { id: 'a11', nombre: 'Leonardo Díaz' },
-    { id: 'a12', nombre: 'Mariana Ruiz' },
-    { id: 'a13', nombre: 'Nicolás Moreno' },
-    { id: 'a14', nombre: 'Luciana Jiménez' },
-    { id: 'a15', nombre: 'Emilio Vargas' },
-    { id: 'a16', nombre: 'Renata Castro' },
-    { id: 'a17', nombre: 'Daniel Ramos' },
-    { id: 'a18', nombre: 'Paula Mendoza' },
-    { id: 'a19', nombre: 'Alejandro Reyes' },
-    { id: 'a20', nombre: 'Andrea Gutiérrez' },
-    { id: 'a21', nombre: 'Joaquín Ortiz' },
-  ],
-  temas: {
-    'Peón 1': [
-      { id: 't1', nombre: 'El tablero y las piezas' },
-      { id: 't2', nombre: 'Movimiento del peón' },
-      { id: 't3', nombre: 'Movimiento de la torre' },
-      { id: 't4', nombre: 'Movimiento del alfil' },
-      { id: 't5', nombre: 'Movimiento de la dama' },
-      { id: 't6', nombre: 'Movimiento del rey' },
-      { id: 't7', nombre: 'Movimiento del caballo' },
-      { id: 't8', nombre: 'El jaque' },
-      { id: 't9', nombre: 'El jaque mate' },
-      { id: 't10', nombre: 'Partida completa' },
-    ],
-    'Caballo 1': [
-      { id: 't11', nombre: 'Valor de las piezas' },
-      { id: 't12', nombre: 'Capturas y cambios' },
-      { id: 't13', nombre: 'La clavada' },
-      { id: 't14', nombre: 'El ataque doble' },
-      { id: 't15', nombre: 'Principios de apertura I' },
-      { id: 't16', nombre: 'Principios de apertura II' },
-      { id: 't17', nombre: 'Enroque y seguridad del rey' },
-      { id: 't18', nombre: 'Coordinación de piezas' },
-    ],
-    'Alfil 1': [
-      { id: 't19', nombre: 'Notación algebraica' },
-      { id: 't20', nombre: 'Jaque mate con dama' },
-      { id: 't21', nombre: 'Jaque mate con torre' },
-      { id: 't22', nombre: 'Patrones de mate básicos' },
-      { id: 't23', nombre: 'Finales de peones' },
-    ],
-  }
 }
 
 // =============================================================================
@@ -253,8 +179,8 @@ function AlumnoItem({ alumno, asistio, onToggle }) {
 // PANTALLAS
 // =============================================================================
 
-function PantallaConfiguracion({ onNext, formData, setFormData }) {
-  const { maestros, grupos, temas } = MOCK_DATA
+function PantallaConfiguracion({ onNext, formData, setFormData, data }) {
+  const { maestros, grupos, temas } = data
   
   // Filtrar grupos según el día actual y el maestro
   const hoy = new Date().getDay()
@@ -262,17 +188,17 @@ function PantallaConfiguracion({ onNext, formData, setFormData }) {
   const esMartesJueves = hoy === 2 || hoy === 4
   
   const gruposFiltrados = grupos.filter(g => {
-    // Filtrar por maestro si hay uno seleccionado
     if (formData.maestroId && g.maestroId !== formData.maestroId) return false
-    // Filtrar por día (solo si es día de clase)
-    if (esLunesMiercoles && g.dias !== 'Lun/Mié') return false
-    if (esMartesJueves && g.dias !== 'Mar/Jue') return false
+    if (esLunesMiercoles && g.dias !== 'Lun y Mie') return false
+    if (esMartesJueves && g.dias !== 'Mar y Jue') return false
     return true
   })
   
   // Obtener temas del nivel del grupo seleccionado
   const grupoSeleccionado = grupos.find(g => g.id === formData.grupoId)
-  const temasDelNivel = grupoSeleccionado ? (temas[grupoSeleccionado.nivel] || []) : []
+  const temasDelNivel = grupoSeleccionado 
+    ? temas.filter(t => t.nivel === grupoSeleccionado.nivel)
+    : []
   
   const tiposClase = [
     { value: 'Temario', label: 'Temario', icon: <BookOpen className="w-4 h-4" /> },
@@ -323,13 +249,13 @@ function PantallaConfiguracion({ onNext, formData, setFormData }) {
           onChange={(v) => setFormData({ ...formData, grupoId: v })}
           options={gruposFiltrados.map(g => ({ 
             value: g.id, 
-            label: `${g.codigo} - ${g.nivel} (${g.dias} ${g.horario})` 
+            label: `${g.codigo} (${g.dias} ${g.horario})` 
           }))}
           icon={Users}
         />
         {grupoSeleccionado && (
           <p className="mt-2 text-sm text-gambito-gray">
-            {grupos.find(g => g.id === formData.grupoId)?.alumnos.length || 0} alumnos
+            Nivel: {grupoSeleccionado.nivel}
           </p>
         )}
       </Card>
@@ -405,10 +331,10 @@ function PantallaConfiguracion({ onNext, formData, setFormData }) {
   )
 }
 
-function PantallaAsistencia({ onBack, onSubmit, formData, asistencia, setAsistencia, loading }) {
-  const { grupos, alumnos } = MOCK_DATA
+function PantallaAsistencia({ onBack, onSubmit, formData, asistencia, setAsistencia, loading, data }) {
+  const { grupos, alumnos } = data
   const grupo = grupos.find(g => g.id === formData.grupoId)
-  const alumnosDelGrupo = grupo?.alumnos.map(id => alumnos.find(a => a.id === id)).filter(Boolean) || []
+  const alumnosDelGrupo = alumnos.filter(a => a.grupoId === formData.grupoId)
   
   const asistieron = Object.values(asistencia).filter(Boolean).length
   const faltaron = alumnosDelGrupo.length - asistieron
@@ -425,7 +351,7 @@ function PantallaAsistencia({ onBack, onSubmit, formData, asistencia, setAsisten
             <p className="font-bold text-gambito-dark">{grupo?.codigo}</p>
             <p className="text-sm text-gambito-gray">
               {formData.tipo === 'Temario' 
-                ? MOCK_DATA.temas[grupo?.nivel]?.find(t => t.id === formData.temaId)?.nombre
+                ? data.temas.find(t => t.id === formData.temaId)?.nombre
                 : formData.tipo
               }
             </p>
@@ -527,15 +453,25 @@ function PantallaError({ mensaje, onRetry }) {
   )
 }
 
+function PantallaCargando() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6">
+      <Loader2 className="w-16 h-16 text-gambito-green animate-spin" />
+      <p className="text-gambito-gray">Cargando datos de Notion...</p>
+    </div>
+  )
+}
+
 // =============================================================================
 // APP PRINCIPAL
 // =============================================================================
 
 export default function App() {
-  const [pantalla, setPantalla] = useState('config') // config, asistencia, exito, error
+  const [pantalla, setPantalla] = useState('cargando') // cargando, config, asistencia, exito, error
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [notas, setNotas] = useState('')
+  const [data, setData] = useState(null)
   
   const [formData, setFormData] = useState({
     maestroId: localStorage.getItem('gambito_maestro') || '',
@@ -548,6 +484,25 @@ export default function App() {
   
   const [asistencia, setAsistencia] = useState({})
   
+  // Cargar datos al iniciar
+  useEffect(() => {
+    cargarDatos()
+  }, [])
+  
+  const cargarDatos = async () => {
+    try {
+      const response = await fetch(CONFIG.DATA_URL)
+      if (!response.ok) throw new Error('Error al cargar datos')
+      const datos = await response.json()
+      setData(datos)
+      setPantalla('config')
+    } catch (err) {
+      console.error('Error cargando datos:', err)
+      setError('No se pudieron cargar los datos de Notion. Verifica que n8n esté funcionando.')
+      setPantalla('error')
+    }
+  }
+  
   // Guardar maestro en localStorage
   useEffect(() => {
     if (formData.maestroId) {
@@ -557,27 +512,24 @@ export default function App() {
   
   // Inicializar asistencia cuando cambia el grupo
   useEffect(() => {
-    if (formData.grupoId) {
-      const grupo = MOCK_DATA.grupos.find(g => g.id === formData.grupoId)
-      if (grupo) {
-        const inicial = {}
-        grupo.alumnos.forEach(id => {
-          inicial[id] = true // Todos presentes por default
-        })
-        setAsistencia(inicial)
-      }
+    if (formData.grupoId && data) {
+      const alumnosDelGrupo = data.alumnos.filter(a => a.grupoId === formData.grupoId)
+      const inicial = {}
+      alumnosDelGrupo.forEach(alumno => {
+        inicial[alumno.id] = true // Todos presentes por default
+      })
+      setAsistencia(inicial)
     }
-  }, [formData.grupoId])
+  }, [formData.grupoId, data])
   
   const handleSubmit = async () => {
     setLoading(true)
     setError('')
     
     try {
-      // Preparar datos para enviar
-      const grupo = MOCK_DATA.grupos.find(g => g.id === formData.grupoId)
+      const grupo = data.grupos.find(g => g.id === formData.grupoId)
       const tema = formData.tipo === 'Temario' 
-        ? MOCK_DATA.temas[grupo?.nivel]?.find(t => t.id === formData.temaId)
+        ? data.temas.find(t => t.id === formData.temaId)
         : null
       
       const payload = {
@@ -594,15 +546,11 @@ export default function App() {
         notas: notas,
         asistencia: Object.entries(asistencia).map(([alumnoId, asistio]) => ({
           alumnoId,
-          alumnoNombre: MOCK_DATA.alumnos.find(a => a.id === alumnoId)?.nombre,
+          alumnoNombre: data.alumnos.find(a => a.id === alumnoId)?.nombre,
           status: asistio ? 'Asistió' : 'Falta'
         }))
       }
       
-      console.log('Datos a enviar:', payload)
-      
-      // Enviar a webhook (descomentar cuando tengas el webhook real)
-      /*
       const response = await fetch(CONFIG.WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -610,14 +558,11 @@ export default function App() {
       })
       
       if (!response.ok) throw new Error('Error al guardar')
-      */
-      
-      // Simular delay de red
-      await new Promise(resolve => setTimeout(resolve, 1000))
       
       setPantalla('exito')
     } catch (err) {
-      setError(err.message || 'Error desconocido')
+      console.error('Error:', err)
+      setError(err.message || 'Error desconocido al guardar la clase')
       setPantalla('error')
     } finally {
       setLoading(false)
@@ -638,20 +583,32 @@ export default function App() {
     setPantalla('config')
   }
   
+  if (!data && pantalla === 'cargando') {
+    return (
+      <div className="min-h-screen bg-gambito-light">
+        <Header />
+        <main className="max-w-lg mx-auto p-4 pb-8">
+          <PantallaCargando />
+        </main>
+      </div>
+    )
+  }
+  
   return (
     <div className="min-h-screen bg-gambito-light">
       <Header />
       
       <main className="max-w-lg mx-auto p-4 pb-8">
-        {pantalla === 'config' && (
+        {pantalla === 'config' && data && (
           <PantallaConfiguracion
             onNext={() => setPantalla('asistencia')}
             formData={formData}
             setFormData={setFormData}
+            data={data}
           />
         )}
         
-        {pantalla === 'asistencia' && (
+        {pantalla === 'asistencia' && data && (
           <PantallaAsistencia
             onBack={() => setPantalla('config')}
             onSubmit={handleSubmit}
@@ -659,6 +616,7 @@ export default function App() {
             asistencia={asistencia}
             setAsistencia={setAsistencia}
             loading={loading}
+            data={data}
           />
         )}
         
@@ -667,7 +625,16 @@ export default function App() {
         )}
         
         {pantalla === 'error' && (
-          <PantallaError mensaje={error} onRetry={handleReset} />
+          <PantallaError 
+            mensaje={error} 
+            onRetry={() => {
+              if (error.includes('cargar datos')) {
+                cargarDatos()
+              } else {
+                handleReset()
+              }
+            }} 
+          />
         )}
       </main>
       
