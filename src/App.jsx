@@ -190,28 +190,36 @@ function RadioGroup({ label, value, onChange, options }) {
   )
 }
 
-function AlumnoItem({ alumno, asistio, onToggle }) {
+function AlumnoItem({ alumno, asistio, onToggle, esInvitado = false }) {
+  // Cuando es invitado y NO asistió: estilo gris/inhabilitado en lugar de rojo
+  const noAsistioBorder = esInvitado ? 'border-gray-200' : 'border-gambito-red/30'
+  const noAsistioBg     = esInvitado ? 'bg-gray-50 opacity-60' : 'bg-gambito-red/5'
+  const noAsistioIcon   = esInvitado ? 'bg-gray-400 text-white' : 'bg-gambito-red text-white'
+  const noAsistioText   = esInvitado ? 'text-gray-500' : 'text-gambito-red'
+  const noAsistioBadge  = esInvitado ? 'bg-gray-200 text-gray-600' : 'bg-gambito-red/20 text-gambito-red'
+  const noAsistioLabel  = esInvitado ? 'No asistió' : 'Falta'
+  
   return (
     <button
       onClick={onToggle}
       className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 transition-all active:scale-[0.98] ${
         asistio
           ? 'border-gambito-green/30 bg-gambito-green/5'
-          : 'border-gambito-red/30 bg-gambito-red/5'
+          : `${noAsistioBorder} ${noAsistioBg}`
       }`}
     >
       <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
-        asistio ? 'bg-gambito-green text-white' : 'bg-gambito-red text-white'
+        asistio ? 'bg-gambito-green text-white' : noAsistioIcon
       }`}>
         {asistio ? <Check className="w-5 h-5" /> : <X className="w-5 h-5" />}
       </div>
-      <span className={`flex-1 text-left font-medium ${asistio ? 'text-gambito-dark' : 'text-gambito-red'}`}>
+      <span className={`flex-1 text-left font-medium ${asistio ? 'text-gambito-dark' : noAsistioText}`}>
         {alumno.nombre}
       </span>
       <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-        asistio ? 'bg-gambito-green/20 text-gambito-green-dark' : 'bg-gambito-red/20 text-gambito-red'
+        asistio ? 'bg-gambito-green/20 text-gambito-green-dark' : noAsistioBadge
       }`}>
-        {asistio ? 'Presente' : 'Falta'}
+        {asistio ? 'Presente' : noAsistioLabel}
       </span>
     </button>
   )
@@ -420,12 +428,31 @@ function PantallaAsistencia({ onBack, onSubmit, formData, asistencia, setAsisten
   const { grupos, alumnos } = data
   const esLectura = formData.tipoClase === 'lectura'
   const grupo = esLectura ? null : grupos.find(g => g.id === formData.grupoId)
+  
+  // Para lectura: separar por plan
+  const alumnosPlanLectura = esLectura 
+    ? alumnos.filter(a => a.plan === 'ajedrez_lectura')
+    : []
+  const alumnosInvitados = esLectura
+    ? alumnos.filter(a => a.plan !== 'ajedrez_lectura')
+    : []
+  // Si el webhook aún no devuelve el campo `plan`, no hay forma de separar → mostrar todo en una sola sección
+  const tienePlanInfo = alumnosPlanLectura.length > 0
+  
   const alumnosAMostrar = esLectura 
-    ? alumnos // Lectura: TODOS los alumnos
+    ? alumnos // Todos los alumnos (separados visualmente más abajo)
     : alumnos.filter(a => a.grupoId === formData.grupoId)
   
   const asistieron = Object.values(asistencia).filter(Boolean).length
   const faltaron = alumnosAMostrar.length - asistieron
+  
+  // Helper para togglear la asistencia de un alumno
+  const toggleAsistencia = (alumnoId) => {
+    setAsistencia(prev => ({
+      ...prev,
+      [alumnoId]: prev[alumnoId] === false ? true : false
+    }))
+  }
   
   return (
     <div className="space-y-4 animate-fade-in">
@@ -441,7 +468,7 @@ function PantallaAsistencia({ onBack, onSubmit, formData, asistencia, setAsisten
             </p>
             <p className="text-sm text-gambito-gray">
               {esLectura
-                ? 'Todos los alumnos'
+                ? (tienePlanInfo ? `${alumnosPlanLectura.length} del taller + ${alumnosInvitados.length} invitados` : 'Todos los alumnos')
                 : (formData.tipo === 'Temario' 
                     ? data.temas.find(t => t.id === formData.temaId)?.nombre
                     : formData.tipo)
@@ -470,19 +497,64 @@ function PantallaAsistencia({ onBack, onSubmit, formData, asistencia, setAsisten
       </p>
       
       {/* Lista de alumnos */}
-      <div className="space-y-2 stagger-children">
-        {alumnosAMostrar.map(alumno => (
-          <AlumnoItem
-            key={alumno.id}
-            alumno={alumno}
-            asistio={asistencia[alumno.id] !== false}
-            onToggle={() => setAsistencia(prev => ({
-              ...prev,
-              [alumno.id]: prev[alumno.id] === false ? true : false
-            }))}
-          />
-        ))}
-      </div>
+      {esLectura && tienePlanInfo ? (
+        <>
+          {/* Sección 1: Alumnos del plan combinado */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between px-1 pt-2">
+              <h3 className="text-sm font-bold text-gambito-dark uppercase tracking-wide">
+                📚 Taller de lectura
+              </h3>
+              <span className="text-xs text-gambito-gray">{alumnosPlanLectura.length} alumnos</span>
+            </div>
+            <div className="space-y-2 stagger-children">
+              {alumnosPlanLectura.map(alumno => (
+                <AlumnoItem
+                  key={alumno.id}
+                  alumno={alumno}
+                  asistio={asistencia[alumno.id] !== false}
+                  onToggle={() => toggleAsistencia(alumno.id)}
+                />
+              ))}
+            </div>
+          </div>
+          
+          {/* Sección 2: Invitados (sin plan combinado) */}
+          {alumnosInvitados.length > 0 && (
+            <div className="space-y-2 pt-2">
+              <div className="flex items-center justify-between px-1 pt-2 border-t border-gray-100">
+                <h3 className="text-sm font-bold text-gambito-gray uppercase tracking-wide pt-3">
+                  ✨ Invitados
+                </h3>
+                <span className="text-xs text-gambito-gray pt-3">{alumnosInvitados.length} alumnos</span>
+              </div>
+              <div className="space-y-2 stagger-children">
+                {alumnosInvitados.map(alumno => (
+                  <AlumnoItem
+                    key={alumno.id}
+                    alumno={alumno}
+                    asistio={asistencia[alumno.id] !== false}
+                    onToggle={() => toggleAsistencia(alumno.id)}
+                    esInvitado
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        /* Lista plana: clase de ajedrez O lectura sin info de plan (fallback) */
+        <div className="space-y-2 stagger-children">
+          {alumnosAMostrar.map(alumno => (
+            <AlumnoItem
+              key={alumno.id}
+              alumno={alumno}
+              asistio={asistencia[alumno.id] !== false}
+              onToggle={() => toggleAsistencia(alumno.id)}
+            />
+          ))}
+        </div>
+      )}
       
       {/* Notas */}
       <Card className="p-4">
@@ -604,21 +676,29 @@ export default function App() {
   useEffect(() => {
     if (!data) return
     
-    let alumnosAMarcar = []
+    let alumnosPresentes = []
+    let alumnosAusentes = []
     
     if (formData.tipoClase === 'lectura') {
-      // Lectura: TODOS los alumnos disponibles (decisión #42)
-      alumnosAMarcar = data.alumnos
+      // Lectura: separar por plan combinado (presente) vs invitados (ausentes por default)
+      const conPlanLectura = data.alumnos.filter(a => a.plan === 'ajedrez_lectura')
+      
+      if (conPlanLectura.length === 0) {
+        // Fallback: si el webhook aún no devuelve el campo `plan`, asumir que todos son del taller
+        alumnosPresentes = data.alumnos
+      } else {
+        alumnosPresentes = conPlanLectura
+        alumnosAusentes = data.alumnos.filter(a => a.plan !== 'ajedrez_lectura')
+      }
     } else if (formData.grupoId) {
-      // Ajedrez: solo los del grupo seleccionado
-      alumnosAMarcar = data.alumnos.filter(a => a.grupoId === formData.grupoId)
+      // Ajedrez: solo los del grupo seleccionado, todos presente por default
+      alumnosPresentes = data.alumnos.filter(a => a.grupoId === formData.grupoId)
     }
     
-    if (alumnosAMarcar.length > 0) {
+    if (alumnosPresentes.length > 0 || alumnosAusentes.length > 0) {
       const inicial = {}
-      alumnosAMarcar.forEach(alumno => {
-        inicial[alumno.id] = true
-      })
+      alumnosPresentes.forEach(a => { inicial[a.id] = true })
+      alumnosAusentes.forEach(a => { inicial[a.id] = false })
       setAsistencia(inicial)
     } else {
       setAsistencia({})
