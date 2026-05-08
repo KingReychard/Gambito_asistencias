@@ -39,6 +39,13 @@ function getFechaHoyMexico() {
   }).split(',')[0]
 }
 
+// Default de tipo de clase según día de la semana
+// Viernes (5) → taller de lectura. Resto → clase de ajedrez.
+function getTipoClaseDefault(fecha) {
+  const d = new Date(fecha + 'T12:00:00')
+  return d.getDay() === 5 ? 'lectura' : 'ajedrez'
+}
+
 // =============================================================================
 // COMPONENTES UI
 // =============================================================================
@@ -237,14 +244,25 @@ function PantallaConfiguracion({ onNext, formData, setFormData, data }) {
     : []
   
   const tiposClase = [
+    { value: 'ajedrez', label: 'Ajedrez', icon: <span className="text-base leading-none">♞</span> },
+    { value: 'lectura', label: 'Taller de lectura', icon: <span className="text-base leading-none">📚</span> },
+  ]
+  
+  const tiposSesion = [
     { value: 'Temario', label: 'Temario', icon: <BookOpen className="w-4 h-4" /> },
     { value: 'Práctica', label: 'Práctica', icon: <Gamepad2 className="w-4 h-4" /> },
     { value: 'Evaluación', label: 'Evaluación', icon: <ClipboardList className="w-4 h-4" /> },
     { value: 'Torneo', label: 'Torneo', icon: <Trophy className="w-4 h-4" /> },
   ]
   
-  const canContinue = formData.fecha && formData.maestroId && formData.grupoId && formData.tipo && 
-    (formData.tipo !== 'Temario' || (formData.temaId && formData.sesion && formData.totalSesiones))
+  const esLectura = formData.tipoClase === 'lectura'
+  
+  const canContinue = formData.fecha && formData.tipoClase && formData.maestroId && (
+    esLectura
+      ? true  // Para lectura solo necesitamos fecha + tipoClase + maestro
+      : (formData.grupoId && formData.tipo && 
+         (formData.tipo !== 'Temario' || (formData.temaId && formData.sesion && formData.totalSesiones)))
+  )
   
   return (
     <div className="space-y-4 animate-fade-in">
@@ -253,7 +271,12 @@ function PantallaConfiguracion({ onNext, formData, setFormData, data }) {
         <DateInput
           label="Fecha de la clase"
           value={formData.fecha}
-          onChange={(v) => setFormData({ ...formData, fecha: v, grupoId: '' })}
+          onChange={(v) => setFormData({ 
+            ...formData, 
+            fecha: v, 
+            grupoId: '',
+            tipoClase: getTipoClaseDefault(v)  // Recalcular default al cambiar fecha
+          })}
           icon={Calendar}
         />
         <p className="mt-2 text-xs text-gambito-gray">
@@ -264,6 +287,23 @@ function PantallaConfiguracion({ onNext, formData, setFormData, data }) {
             year: 'numeric'
           })}
         </p>
+      </Card>
+      
+      {/* Tipo de clase: Ajedrez o Lectura */}
+      <Card className="p-4">
+        <RadioGroup
+          label="Tipo de clase"
+          value={formData.tipoClase}
+          onChange={(v) => setFormData({ 
+            ...formData, 
+            tipoClase: v,
+            // Si cambia a lectura, limpiar campos de ajedrez
+            grupoId: v === 'lectura' ? '' : formData.grupoId,
+            tipo: v === 'lectura' ? '' : formData.tipo,
+            temaId: v === 'lectura' ? '' : formData.temaId,
+          })}
+          options={tiposClase}
+        />
       </Card>
       
       {/* Maestro */}
@@ -277,7 +317,8 @@ function PantallaConfiguracion({ onNext, formData, setFormData, data }) {
         />
       </Card>
       
-      {/* Grupo */}
+      {/* Grupo: solo para clases de ajedrez */}
+      {!esLectura && (
       <Card className="p-4">
         <Select
           label="Grupo"
@@ -300,19 +341,22 @@ function PantallaConfiguracion({ onNext, formData, setFormData, data }) {
           </p>
         )}
       </Card>
+      )}
       
-      {/* Tipo de clase */}
+      {/* Tipo de sesión: solo para clases de ajedrez */}
+      {!esLectura && (
       <Card className="p-4">
         <RadioGroup
-          label="Tipo de clase"
+          label="Tipo de sesión"
           value={formData.tipo}
           onChange={(v) => setFormData({ ...formData, tipo: v, temaId: '', sesion: 1, totalSesiones: 2 })}
-          options={tiposClase}
+          options={tiposSesion}
         />
       </Card>
+      )}
       
-      {/* Tema y sesión (solo si es Temario) */}
-      {formData.tipo === 'Temario' && (
+      {/* Tema y sesión (solo si es Temario y clase de ajedrez) */}
+      {!esLectura && formData.tipo === 'Temario' && (
         <Card className="p-4 space-y-4">
           <Select
             label="Tema"
@@ -374,11 +418,14 @@ function PantallaConfiguracion({ onNext, formData, setFormData, data }) {
 
 function PantallaAsistencia({ onBack, onSubmit, formData, asistencia, setAsistencia, loading, data }) {
   const { grupos, alumnos } = data
-  const grupo = grupos.find(g => g.id === formData.grupoId)
-  const alumnosDelGrupo = alumnos.filter(a => a.grupoId === formData.grupoId)
+  const esLectura = formData.tipoClase === 'lectura'
+  const grupo = esLectura ? null : grupos.find(g => g.id === formData.grupoId)
+  const alumnosAMostrar = esLectura 
+    ? alumnos // Lectura: TODOS los alumnos
+    : alumnos.filter(a => a.grupoId === formData.grupoId)
   
   const asistieron = Object.values(asistencia).filter(Boolean).length
-  const faltaron = alumnosDelGrupo.length - asistieron
+  const faltaron = alumnosAMostrar.length - asistieron
   
   return (
     <div className="space-y-4 animate-fade-in">
@@ -389,11 +436,15 @@ function PantallaAsistencia({ onBack, onSubmit, formData, asistencia, setAsisten
             <ChevronLeft className="w-6 h-6" />
           </button>
           <div className="text-center">
-            <p className="font-bold text-gambito-dark">{grupo?.codigo}</p>
+            <p className="font-bold text-gambito-dark">
+              {esLectura ? '📚 Taller de lectura' : grupo?.codigo}
+            </p>
             <p className="text-sm text-gambito-gray">
-              {formData.tipo === 'Temario' 
-                ? data.temas.find(t => t.id === formData.temaId)?.nombre
-                : formData.tipo
+              {esLectura
+                ? 'Todos los alumnos'
+                : (formData.tipo === 'Temario' 
+                    ? data.temas.find(t => t.id === formData.temaId)?.nombre
+                    : formData.tipo)
               }
             </p>
           </div>
@@ -420,7 +471,7 @@ function PantallaAsistencia({ onBack, onSubmit, formData, asistencia, setAsisten
       
       {/* Lista de alumnos */}
       <div className="space-y-2 stagger-children">
-        {alumnosDelGrupo.map(alumno => (
+        {alumnosAMostrar.map(alumno => (
           <AlumnoItem
             key={alumno.id}
             alumno={alumno}
@@ -514,14 +565,18 @@ export default function App() {
   const [notas, setNotas] = useState('')
   const [data, setData] = useState(null)
   
-  const [formData, setFormData] = useState({
-    fecha: getFechaHoyMexico(), // ✅ Fecha en timezone México (UTC-6)
-    maestroId: '', // ✅ Sin maestro pre-seleccionado
-    grupoId: '',
-    tipo: '',
-    temaId: '',
-    sesion: 1,
-    totalSesiones: 2,
+  const [formData, setFormData] = useState(() => {
+    const fechaHoy = getFechaHoyMexico()
+    return {
+      fecha: fechaHoy, // ✅ Fecha en timezone México (UTC-6)
+      tipoClase: getTipoClaseDefault(fechaHoy), // ✅ ajedrez/lectura según día (viernes → lectura)
+      maestroId: '', // ✅ Sin maestro pre-seleccionado
+      grupoId: '',
+      tipo: '',
+      temaId: '',
+      sesion: 1,
+      totalSesiones: 2,
+    }
   })
   
   const [asistencia, setAsistencia] = useState({})
@@ -545,40 +600,55 @@ export default function App() {
     }
   }
   
-  // Inicializar asistencia cuando cambia el grupo
+  // Inicializar asistencia cuando cambia el grupo (ajedrez) o cuando cambia a lectura
   useEffect(() => {
-    if (formData.grupoId && data) {
-      const alumnosDelGrupo = data.alumnos.filter(a => a.grupoId === formData.grupoId)
+    if (!data) return
+    
+    let alumnosAMarcar = []
+    
+    if (formData.tipoClase === 'lectura') {
+      // Lectura: TODOS los alumnos disponibles (decisión #42)
+      alumnosAMarcar = data.alumnos
+    } else if (formData.grupoId) {
+      // Ajedrez: solo los del grupo seleccionado
+      alumnosAMarcar = data.alumnos.filter(a => a.grupoId === formData.grupoId)
+    }
+    
+    if (alumnosAMarcar.length > 0) {
       const inicial = {}
-      alumnosDelGrupo.forEach(alumno => {
+      alumnosAMarcar.forEach(alumno => {
         inicial[alumno.id] = true
       })
       setAsistencia(inicial)
+    } else {
+      setAsistencia({})
     }
-  }, [formData.grupoId, data])
+  }, [formData.grupoId, formData.tipoClase, data])
   
   const handleSubmit = async () => {
     setLoading(true)
     setError('')
     
     try {
-      const grupo = data.grupos.find(g => g.id === formData.grupoId)
-      const tema = formData.tipo === 'Temario' 
+      const esLectura = formData.tipoClase === 'lectura'
+      const grupo = esLectura ? null : data.grupos.find(g => g.id === formData.grupoId)
+      const tema = !esLectura && formData.tipo === 'Temario' 
         ? data.temas.find(t => t.id === formData.temaId)
         : null
       
       const payload = {
         fecha: formData.fecha,
+        tipoClase: formData.tipoClase, // 'ajedrez' | 'lectura' ✨ NUEVO
         maestroId: formData.maestroId,
         maestroNombre: data.maestros.find(m => m.id === formData.maestroId)?.nombre,
-        grupoId: formData.grupoId,
-        grupoCodigo: grupo?.codigo,
-        tipo: formData.tipo,
-        temaId: formData.temaId,
-        temaNombre: tema?.nombre,
-        sesion: formData.tipo === 'Temario' ? formData.sesion : null,
-        totalSesiones: formData.tipo === 'Temario' ? formData.totalSesiones : null,
-        temaCompletado: formData.tipo === 'Temario' && formData.sesion === formData.totalSesiones,
+        grupoId: esLectura ? null : formData.grupoId,
+        grupoCodigo: esLectura ? null : grupo?.codigo,
+        tipo: esLectura ? null : formData.tipo,
+        temaId: esLectura ? null : formData.temaId,
+        temaNombre: tema?.nombre || null,
+        sesion: !esLectura && formData.tipo === 'Temario' ? formData.sesion : null,
+        totalSesiones: !esLectura && formData.tipo === 'Temario' ? formData.totalSesiones : null,
+        temaCompletado: !esLectura && formData.tipo === 'Temario' && formData.sesion === formData.totalSesiones,
         notas: notas,
         asistencia: Object.entries(asistencia).map(([alumnoId, asistio]) => ({
           alumnoId,
@@ -606,8 +676,10 @@ export default function App() {
   }
   
   const handleReset = () => {
+    const fechaHoy = getFechaHoyMexico()
     setFormData({
-      fecha: getFechaHoyMexico(), // ✅ Reset a fecha actual en México
+      fecha: fechaHoy, // ✅ Reset a fecha actual en México
+      tipoClase: getTipoClaseDefault(fechaHoy), // ✅ Default por día (viernes → lectura)
       maestroId: '', // ✅ Sin maestro pre-seleccionado
       grupoId: '',
       tipo: '',
