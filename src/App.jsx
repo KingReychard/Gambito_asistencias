@@ -53,7 +53,7 @@ function getTipoClaseDefault(fecha) {
 function Header() {
   return (
     <header className="bg-gambito-green text-white px-4 py-3 shadow-lg">
-      <div className="max-w-lg mx-auto flex items-center gap-3">
+      <div className="max-w-lg mx-auto text-center">
         <div>
           <h1 className="text-xl font-bold tracking-tight">GAMBITO</h1>
           <p className="text-xs text-white/80 -mt-0.5">Registro de Clases</p>
@@ -275,7 +275,7 @@ function PantallaConfiguracion({ onNext, formData, setFormData, data }) {
   return (
     <div className="space-y-4 animate-fade-in">
         <div className="flex justify-center pb-1">
-        <img src="/Logo_Gambito.png" alt="Gambito" className="h-24 w-auto object-contain" />
+        <img src="/Logo_Gambito.png" alt="Gambito" className="h-48 w-auto object-contain" />
       </div>
       {/* Fecha */}
       <Card className="p-4">
