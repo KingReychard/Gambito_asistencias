@@ -14,7 +14,7 @@ export default {
           'orange-dark': '#e8871a',
           dark: '#1a1a1a',
           gray: '#6B7280',
-          light: '#f8f9fa',
+          light: '##f7f2e9',
           red: '#ef4444',
         }
       },
