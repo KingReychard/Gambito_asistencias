@@ -13,7 +13,8 @@ import {
   GraduationCap,
   Gamepad2,
   Trophy,
-  ClipboardList
+  ClipboardList,
+  Bell
 } from 'lucide-react'
 
 // =============================================================================
@@ -26,10 +27,21 @@ const CONFIG = {
 }
 
 // =============================================================================
+// TIPOS DE ESTADO DE ASISTENCIA
+// 'presente'    → Asistió      → verde   ✅
+// 'falta'       → Falta        → rojo    ❌
+// 'justificada' → Falta avisada → naranja ⚠️
+// =============================================================================
+const ESTADO_ASISTENCIA = {
+  presente:    { siguiente: 'falta',       status: 'Asistió',         label: 'Presente',      labelCorto: '✅' },
+  falta:       { siguiente: 'justificada', status: 'Falta',           label: 'Falta',         labelCorto: '❌' },
+  justificada: { siguiente: 'presente',    status: 'Falta justificada', label: 'Falta avisada', labelCorto: '⚠️' },
+}
+
+// =============================================================================
 // UTILIDADES
 // =============================================================================
 
-// Obtener fecha de hoy en timezone de México (UTC-6)
 function getFechaHoyMexico() {
   return new Date().toLocaleString('en-CA', { 
     timeZone: 'America/Mexico_City',
@@ -39,15 +51,13 @@ function getFechaHoyMexico() {
   }).split(',')[0]
 }
 
-// Default de tipo de clase según día de la semana
-// Viernes (5) → taller de lectura. Resto → clase de ajedrez.
 function getTipoClaseDefault(fecha) {
   const d = new Date(fecha + 'T12:00:00')
   return d.getDay() === 5 ? 'lectura' : 'ajedrez'
 }
 
 // =============================================================================
-// COMPONENTES UI
+// COMPONENTES UI BASE
 // =============================================================================
 
 function Header() {
@@ -189,49 +199,107 @@ function RadioGroup({ label, value, onChange, options }) {
   )
 }
 
-function AlumnoItem({ alumno, asistio, onToggle, esInvitado = false }) {
-  // Cuando es invitado y NO asistió: estilo gris/inhabilitado en lugar de rojo
-  const noAsistioBorder = esInvitado ? 'border-gray-200' : 'border-gambito-red/30'
-  const noAsistioBg     = esInvitado ? 'bg-gray-50 opacity-60' : 'bg-gambito-red/5'
-  const noAsistioIcon   = esInvitado ? 'bg-gray-400 text-white' : 'bg-gambito-red text-white'
-  const noAsistioText   = esInvitado ? 'text-gray-500' : 'text-gambito-red'
-  const noAsistioBadge  = esInvitado ? 'bg-gray-200 text-gray-600' : 'bg-gambito-red/20 text-gambito-red'
-  const noAsistioLabel  = esInvitado ? 'No asistió' : 'Falta'
+// =============================================================================
+// ALUMNO ITEM — 3 estados con ciclo de tap
+// Tap 1: presente → falta
+// Tap 2: falta → justificada (falta avisada)
+// Tap 3: justificada → presente
+// =============================================================================
+
+function AlumnoItem({ alumno, estado = 'presente', onToggle, esInvitado = false }) {
+  const esPresente    = estado === 'presente'
+  const esFalta       = estado === 'falta'
+  const esJustificada = estado === 'justificada'
+
+  // Estilos por estado
+  const styles = (() => {
+    if (esPresente) return {
+      border:   'border-gambito-green/30',
+      bg:       'bg-gambito-green/5',
+      iconBg:   'bg-gambito-green text-white',
+      text:     'text-gambito-dark',
+      badge:    'bg-gambito-green/20 text-gambito-green-dark',
+      label:    'Presente',
+      icon:     <Check className="w-5 h-5" />,
+    }
+    if (esJustificada) return {
+      border:   'border-gambito-orange/40',
+      bg:       'bg-gambito-orange/5',
+      iconBg:   'bg-gambito-orange text-white',
+      text:     'text-gambito-dark',
+      badge:    'bg-gambito-orange/20 text-gambito-orange',
+      label:    '⚠️ Falta avisada',
+      icon:     <Bell className="w-5 h-5" />,
+    }
+    // esFalta
+    if (esInvitado) return {
+      border:   'border-gray-200',
+      bg:       'bg-gray-50 opacity-60',
+      iconBg:   'bg-gray-400 text-white',
+      text:     'text-gray-500',
+      badge:    'bg-gray-200 text-gray-600',
+      label:    'No asistió',
+      icon:     <X className="w-5 h-5" />,
+    }
+    return {
+      border:   'border-gambito-red/30',
+      bg:       'bg-gambito-red/5',
+      iconBg:   'bg-gambito-red text-white',
+      text:     'text-gambito-red',
+      badge:    'bg-gambito-red/20 text-gambito-red',
+      label:    'Falta',
+      icon:     <X className="w-5 h-5" />,
+    }
+  })()
   
   return (
     <button
       onClick={onToggle}
-      className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 transition-all active:scale-[0.98] ${
-        asistio
-          ? 'border-gambito-green/30 bg-gambito-green/5'
-          : `${noAsistioBorder} ${noAsistioBg}`
-      }`}
+      className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 transition-all active:scale-[0.98] ${styles.border} ${styles.bg}`}
     >
-      <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
-        asistio ? 'bg-gambito-green text-white' : noAsistioIcon
-      }`}>
-        {asistio ? <Check className="w-5 h-5" /> : <X className="w-5 h-5" />}
+      <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${styles.iconBg}`}>
+        {styles.icon}
       </div>
-      <span className={`flex-1 text-left font-medium ${asistio ? 'text-gambito-dark' : noAsistioText}`}>
+      <span className={`flex-1 text-left font-medium ${styles.text}`}>
         {alumno.nombre}
       </span>
-      <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-        asistio ? 'bg-gambito-green/20 text-gambito-green-dark' : noAsistioBadge
-      }`}>
-        {asistio ? 'Presente' : noAsistioLabel}
+      <span className={`text-xs font-medium px-2 py-1 rounded-full ${styles.badge}`}>
+        {styles.label}
       </span>
     </button>
   )
 }
 
 // =============================================================================
-// PANTALLAS
+// LEYENDA de estados — aparece en la pantalla de asistencia
+// =============================================================================
+
+function LeyendaEstados() {
+  return (
+    <div className="flex items-center justify-center gap-4 text-xs text-gambito-gray">
+      <span className="flex items-center gap-1">
+        <span className="w-4 h-4 rounded-full bg-gambito-green inline-block" />
+        Presente
+      </span>
+      <span className="flex items-center gap-1">
+        <span className="w-4 h-4 rounded-full bg-gambito-red inline-block" />
+        Falta
+      </span>
+      <span className="flex items-center gap-1">
+        <span className="w-4 h-4 rounded-full bg-gambito-orange inline-block" />
+        Avisó
+      </span>
+    </div>
+  )
+}
+
+// =============================================================================
+// PANTALLA CONFIGURACIÓN
 // =============================================================================
 
 function PantallaConfiguracion({ onNext, formData, setFormData, data }) {
   const { maestros, grupos, temas } = data
   
-  // Filtrar grupos según el día de la fecha seleccionada y el maestro
   const fechaSeleccionada = new Date(formData.fecha + 'T12:00:00')
   const diaSemana = fechaSeleccionada.getDay()
   const esLunesMiercoles = diaSemana === 1 || diaSemana === 3
@@ -244,7 +312,6 @@ function PantallaConfiguracion({ onNext, formData, setFormData, data }) {
     return true
   })
   
-  // Obtener temas del nivel del grupo seleccionado
   const grupoSeleccionado = grupos.find(g => g.id === formData.grupoId)
   const temasDelNivel = grupoSeleccionado 
     ? temas.filter(t => t.nivel === grupoSeleccionado.nivel)
@@ -266,17 +333,17 @@ function PantallaConfiguracion({ onNext, formData, setFormData, data }) {
   
   const canContinue = formData.fecha && formData.tipoClase && formData.maestroId && (
     esLectura
-      ? true  // Para lectura solo necesitamos fecha + tipoClase + maestro
+      ? true
       : (formData.grupoId && formData.tipo && 
          (formData.tipo !== 'Temario' || (formData.temaId && formData.sesion && formData.totalSesiones)))
   )
-
   
   return (
     <div className="space-y-4 animate-fade-in">
-        <div className="flex justify-center pb-1">
+      <div className="flex justify-center pb-1">
         <img src="/Logo_Gambito.png" alt="Gambito" className="h-48 w-auto object-contain" />
       </div>
+
       {/* Fecha */}
       <Card className="p-4">
         <DateInput
@@ -286,7 +353,7 @@ function PantallaConfiguracion({ onNext, formData, setFormData, data }) {
             ...formData, 
             fecha: v, 
             grupoId: '',
-            tipoClase: getTipoClaseDefault(v)  // Recalcular default al cambiar fecha
+            tipoClase: getTipoClaseDefault(v)
           })}
           icon={Calendar}
         />
@@ -300,7 +367,7 @@ function PantallaConfiguracion({ onNext, formData, setFormData, data }) {
         </p>
       </Card>
       
-      {/* Tipo de clase: Ajedrez o Lectura */}
+      {/* Tipo de clase */}
       <Card className="p-4">
         <RadioGroup
           label="Tipo de clase"
@@ -308,7 +375,6 @@ function PantallaConfiguracion({ onNext, formData, setFormData, data }) {
           onChange={(v) => setFormData({ 
             ...formData, 
             tipoClase: v,
-            // Si cambia a lectura, limpiar campos de ajedrez
             grupoId: v === 'lectura' ? '' : formData.grupoId,
             tipo: v === 'lectura' ? '' : formData.tipo,
             temaId: v === 'lectura' ? '' : formData.temaId,
@@ -328,45 +394,45 @@ function PantallaConfiguracion({ onNext, formData, setFormData, data }) {
         />
       </Card>
       
-      {/* Grupo: solo para clases de ajedrez */}
+      {/* Grupo: solo para ajedrez */}
       {!esLectura && (
-      <Card className="p-4">
-        <Select
-          label="Grupo"
-          value={formData.grupoId}
-          onChange={(v) => setFormData({ ...formData, grupoId: v })}
-          options={gruposFiltrados.map(g => ({ 
-            value: g.id, 
-            label: `${g.codigo} (${g.dias} ${g.horario})` 
-          }))}
-          icon={Users}
-        />
-        {grupoSeleccionado && (
-          <p className="mt-2 text-sm text-gambito-gray">
-            Nivel: {grupoSeleccionado.nivel}
-          </p>
-        )}
-        {formData.maestroId && formData.fecha && gruposFiltrados.length === 0 && (
-          <p className="mt-2 text-sm text-gambito-orange">
-            ⚠️ No hay grupos para este día de la semana
-          </p>
-        )}
-      </Card>
+        <Card className="p-4">
+          <Select
+            label="Grupo"
+            value={formData.grupoId}
+            onChange={(v) => setFormData({ ...formData, grupoId: v })}
+            options={gruposFiltrados.map(g => ({ 
+              value: g.id, 
+              label: `${g.codigo} (${g.dias} ${g.horario})` 
+            }))}
+            icon={Users}
+          />
+          {grupoSeleccionado && (
+            <p className="mt-2 text-sm text-gambito-gray">
+              Nivel: {grupoSeleccionado.nivel}
+            </p>
+          )}
+          {formData.maestroId && formData.fecha && gruposFiltrados.length === 0 && (
+            <p className="mt-2 text-sm text-gambito-orange">
+              ⚠️ No hay grupos para este día de la semana
+            </p>
+          )}
+        </Card>
       )}
       
-      {/* Tipo de sesión: solo para clases de ajedrez */}
+      {/* Tipo de sesión: solo para ajedrez */}
       {!esLectura && (
-      <Card className="p-4">
-        <RadioGroup
-          label="Tipo de sesión"
-          value={formData.tipo}
-          onChange={(v) => setFormData({ ...formData, tipo: v, temaId: '', sesion: 1, totalSesiones: 2 })}
-          options={tiposSesion}
-        />
-      </Card>
+        <Card className="p-4">
+          <RadioGroup
+            label="Tipo de sesión"
+            value={formData.tipo}
+            onChange={(v) => setFormData({ ...formData, tipo: v, temaId: '', sesion: 1, totalSesiones: 2 })}
+            options={tiposSesion}
+          />
+        </Card>
       )}
       
-      {/* Tema y sesión (solo si es Temario y clase de ajedrez) */}
+      {/* Tema y sesión: solo para Temario */}
       {!esLectura && formData.tipo === 'Temario' && (
         <Card className="p-4 space-y-4">
           <Select
@@ -394,7 +460,6 @@ function PantallaConfiguracion({ onNext, formData, setFormData, data }) {
             />
           </div>
           
-          {/* Indicador visual de sesiones */}
           <div className="flex gap-1.5 pt-2">
             {Array.from({ length: formData.totalSesiones }, (_, i) => (
               <div
@@ -414,18 +479,17 @@ function PantallaConfiguracion({ onNext, formData, setFormData, data }) {
         </Card>
       )}
       
-      {/* Botón continuar */}
-      <Button
-        onClick={onNext}
-        disabled={!canContinue}
-        className="w-full"
-      >
+      <Button onClick={onNext} disabled={!canContinue} className="w-full">
         Pasar asistencia
         <ChevronRight className="w-5 h-5" />
       </Button>
     </div>
   )
 }
+
+// =============================================================================
+// PANTALLA ASISTENCIA — con 3 estados
+// =============================================================================
 
 function PantallaAsistencia({ onBack, onSubmit, formData, asistencia, setAsistencia, loading, data }) {
   const { grupos, alumnos } = data
@@ -439,27 +503,30 @@ function PantallaAsistencia({ onBack, onSubmit, formData, asistencia, setAsisten
   const alumnosInvitados = esLectura
     ? alumnos.filter(a => a.plan !== 'ajedrez_lectura')
     : []
-  // Si el webhook aún no devuelve el campo `plan`, no hay forma de separar → mostrar todo en una sola sección
   const tienePlanInfo = alumnosPlanLectura.length > 0
   
   const alumnosAMostrar = esLectura 
-    ? alumnos // Todos los alumnos (separados visualmente más abajo)
+    ? alumnos
     : alumnos.filter(a => a.grupoId === formData.grupoId)
-  
-  const asistieron = Object.values(asistencia).filter(Boolean).length
-  const faltaron = alumnosAMostrar.length - asistieron
-  
-  // Helper para togglear la asistencia de un alumno
+
+  // Contadores de los 3 estados
+  const vals = Object.values(asistencia)
+  const numPresentes    = vals.filter(v => v === 'presente').length
+  const numFaltas       = vals.filter(v => v === 'falta').length
+  const numJustificadas = vals.filter(v => v === 'justificada').length
+
+  // Cicla entre los 3 estados al tocar un alumno
   const toggleAsistencia = (alumnoId) => {
-    setAsistencia(prev => ({
-      ...prev,
-      [alumnoId]: prev[alumnoId] === false ? true : false
-    }))
+    setAsistencia(prev => {
+      const actual   = prev[alumnoId] || 'presente'
+      const siguiente = ESTADO_ASISTENCIA[actual]?.siguiente || 'presente'
+      return { ...prev, [alumnoId]: siguiente }
+    })
   }
   
   return (
     <div className="space-y-4 animate-fade-in">
-      {/* Header con resumen */}
+      {/* Header */}
       <Card className="p-4">
         <div className="flex items-center justify-between">
           <button onClick={onBack} className="p-2 -ml-2 text-gambito-gray hover:text-gambito-dark">
@@ -478,31 +545,37 @@ function PantallaAsistencia({ onBack, onSubmit, formData, asistencia, setAsisten
               }
             </p>
           </div>
-          <div className="w-10" /> {/* Spacer */}
+          <div className="w-10" />
         </div>
       </Card>
       
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* Stats — 3 columnas */}
+      <div className="grid grid-cols-3 gap-2">
         <Card className="p-3 text-center">
-          <p className="text-2xl font-bold text-gambito-green">{asistieron}</p>
+          <p className="text-2xl font-bold text-gambito-green">{numPresentes}</p>
           <p className="text-xs text-gambito-gray">Presentes</p>
         </Card>
         <Card className="p-3 text-center">
-          <p className="text-2xl font-bold text-gambito-red">{faltaron}</p>
+          <p className="text-2xl font-bold text-gambito-red">{numFaltas}</p>
           <p className="text-xs text-gambito-gray">Faltas</p>
         </Card>
+        <Card className="p-3 text-center">
+          <p className="text-2xl font-bold text-gambito-orange">{numJustificadas}</p>
+          <p className="text-xs text-gambito-gray">Avisaron</p>
+        </Card>
       </div>
-      
-      {/* Instrucción */}
-      <p className="text-center text-sm text-gambito-gray">
-        Toca un alumno para cambiar su estado
-      </p>
+
+      {/* Instrucción + leyenda */}
+      <div className="space-y-2">
+        <p className="text-center text-sm text-gambito-gray">
+          Toca para cambiar el estado de un alumno
+        </p>
+        <LeyendaEstados />
+      </div>
       
       {/* Lista de alumnos */}
       {esLectura && tienePlanInfo ? (
         <>
-          {/* Sección 1: Alumnos del plan combinado */}
           <div className="space-y-2">
             <div className="flex items-center justify-between px-1 pt-2">
               <h3 className="text-sm font-bold text-gambito-dark uppercase tracking-wide">
@@ -515,14 +588,13 @@ function PantallaAsistencia({ onBack, onSubmit, formData, asistencia, setAsisten
                 <AlumnoItem
                   key={alumno.id}
                   alumno={alumno}
-                  asistio={asistencia[alumno.id] !== false}
+                  estado={asistencia[alumno.id] || 'presente'}
                   onToggle={() => toggleAsistencia(alumno.id)}
                 />
               ))}
             </div>
           </div>
           
-          {/* Sección 2: Invitados (sin plan combinado) */}
           {alumnosInvitados.length > 0 && (
             <div className="space-y-2 pt-2">
               <div className="flex items-center justify-between px-1 pt-2 border-t border-gray-100">
@@ -536,7 +608,7 @@ function PantallaAsistencia({ onBack, onSubmit, formData, asistencia, setAsisten
                   <AlumnoItem
                     key={alumno.id}
                     alumno={alumno}
-                    asistio={asistencia[alumno.id] !== false}
+                    estado={asistencia[alumno.id] || 'falta'}
                     onToggle={() => toggleAsistencia(alumno.id)}
                     esInvitado
                   />
@@ -546,13 +618,12 @@ function PantallaAsistencia({ onBack, onSubmit, formData, asistencia, setAsisten
           )}
         </>
       ) : (
-        /* Lista plana: clase de ajedrez O lectura sin info de plan (fallback) */
         <div className="space-y-2 stagger-children">
           {alumnosAMostrar.map(alumno => (
             <AlumnoItem
               key={alumno.id}
               alumno={alumno}
-              asistio={asistencia[alumno.id] !== false}
+              estado={asistencia[alumno.id] || 'presente'}
               onToggle={() => toggleAsistencia(alumno.id)}
             />
           ))}
@@ -573,18 +644,17 @@ function PantallaAsistencia({ onBack, onSubmit, formData, asistencia, setAsisten
         />
       </Card>
       
-      {/* Botón guardar */}
-      <Button
-        onClick={onSubmit}
-        loading={loading}
-        className="w-full animate-pulse-green"
-      >
+      <Button onClick={onSubmit} loading={loading} className="w-full animate-pulse-green">
         <Check className="w-5 h-5" />
         Guardar Clase
       </Button>
     </div>
   )
 }
+
+// =============================================================================
+// PANTALLAS DE ESTADO
+// =============================================================================
 
 function PantallaExito({ onReset }) {
   return (
@@ -635,28 +705,28 @@ function PantallaCargando() {
 
 export default function App() {
   const [pantalla, setPantalla] = useState('cargando')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [notas, setNotas] = useState('')
-  const [data, setData] = useState(null)
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState('')
+  const [notas, setNotas]       = useState('')
+  const [data, setData]         = useState(null)
   
   const [formData, setFormData] = useState(() => {
     const fechaHoy = getFechaHoyMexico()
     return {
-      fecha: fechaHoy, // ✅ Fecha en timezone México (UTC-6)
-      tipoClase: getTipoClaseDefault(fechaHoy), // ✅ ajedrez/lectura según día (viernes → lectura)
-      maestroId: '', // ✅ Sin maestro pre-seleccionado
-      grupoId: '',
-      tipo: '',
-      temaId: '',
-      sesion: 1,
+      fecha:         fechaHoy,
+      tipoClase:     getTipoClaseDefault(fechaHoy),
+      maestroId:     '',
+      grupoId:       '',
+      tipo:          '',
+      temaId:        '',
+      sesion:        1,
       totalSesiones: 2,
     }
   })
   
+  // Estado de asistencia: { [alumnoId]: 'presente' | 'falta' | 'justificada' }
   const [asistencia, setAsistencia] = useState({})
   
-  // Cargar datos al iniciar
   useEffect(() => {
     cargarDatos()
   }, [])
@@ -675,33 +745,31 @@ export default function App() {
     }
   }
   
-  // Inicializar asistencia cuando cambia el grupo (ajedrez) o cuando cambia a lectura
+  // Inicializar estados de asistencia cuando cambia el grupo o el tipo de clase
   useEffect(() => {
     if (!data) return
     
-    let alumnosPresentes = []
-    let alumnosAusentes = []
+    let presentes  = []
+    let ausentes   = []
     
     if (formData.tipoClase === 'lectura') {
-      // Lectura: separar por plan combinado (presente) vs invitados (ausentes por default)
       const conPlanLectura = data.alumnos.filter(a => a.plan === 'ajedrez_lectura')
       
       if (conPlanLectura.length === 0) {
-        // Fallback: si el webhook aún no devuelve el campo `plan`, asumir que todos son del taller
-        alumnosPresentes = data.alumnos
+        // Fallback: sin info de plan → todos presentes
+        presentes = data.alumnos
       } else {
-        alumnosPresentes = conPlanLectura
-        alumnosAusentes = data.alumnos.filter(a => a.plan !== 'ajedrez_lectura')
+        presentes = conPlanLectura
+        ausentes  = data.alumnos.filter(a => a.plan !== 'ajedrez_lectura')
       }
     } else if (formData.grupoId) {
-      // Ajedrez: solo los del grupo seleccionado, todos presente por default
-      alumnosPresentes = data.alumnos.filter(a => a.grupoId === formData.grupoId)
+      presentes = data.alumnos.filter(a => a.grupoId === formData.grupoId)
     }
     
-    if (alumnosPresentes.length > 0 || alumnosAusentes.length > 0) {
+    if (presentes.length > 0 || ausentes.length > 0) {
       const inicial = {}
-      alumnosPresentes.forEach(a => { inicial[a.id] = true })
-      alumnosAusentes.forEach(a => { inicial[a.id] = false })
+      presentes.forEach(a => { inicial[a.id] = 'presente' })
+      ausentes.forEach(a  => { inicial[a.id] = 'falta' })
       setAsistencia(inicial)
     } else {
       setAsistencia({})
@@ -714,36 +782,37 @@ export default function App() {
     
     try {
       const esLectura = formData.tipoClase === 'lectura'
-      const grupo = esLectura ? null : data.grupos.find(g => g.id === formData.grupoId)
-      const tema = !esLectura && formData.tipo === 'Temario' 
+      const grupo     = esLectura ? null : data.grupos.find(g => g.id === formData.grupoId)
+      const tema      = !esLectura && formData.tipo === 'Temario' 
         ? data.temas.find(t => t.id === formData.temaId)
         : null
       
       const payload = {
-        fecha: formData.fecha,
-        tipoClase: formData.tipoClase, // 'ajedrez' | 'lectura' ✨ NUEVO
-        maestroId: formData.maestroId,
-        maestroNombre: data.maestros.find(m => m.id === formData.maestroId)?.nombre,
-        grupoId: esLectura ? null : formData.grupoId,
-        grupoCodigo: esLectura ? null : grupo?.codigo,
-        tipo: esLectura ? null : formData.tipo,
-        temaId: esLectura ? null : formData.temaId,
-        temaNombre: tema?.nombre || null,
-        sesion: !esLectura && formData.tipo === 'Temario' ? formData.sesion : null,
-        totalSesiones: !esLectura && formData.tipo === 'Temario' ? formData.totalSesiones : null,
+        fecha:          formData.fecha,
+        tipoClase:      formData.tipoClase,
+        maestroId:      formData.maestroId,
+        maestroNombre:  data.maestros.find(m => m.id === formData.maestroId)?.nombre,
+        grupoId:        esLectura ? null : formData.grupoId,
+        grupoCodigo:    esLectura ? null : grupo?.codigo,
+        tipo:           esLectura ? null : formData.tipo,
+        temaId:         esLectura ? null : formData.temaId,
+        temaNombre:     tema?.nombre || null,
+        sesion:         !esLectura && formData.tipo === 'Temario' ? formData.sesion : null,
+        totalSesiones:  !esLectura && formData.tipo === 'Temario' ? formData.totalSesiones : null,
         temaCompletado: !esLectura && formData.tipo === 'Temario' && formData.sesion === formData.totalSesiones,
-        notas: notas,
-        asistencia: Object.entries(asistencia).map(([alumnoId, asistio]) => ({
+        notas:          notas,
+        // Mapear estado → status para Notion/Supabase
+        asistencia: Object.entries(asistencia).map(([alumnoId, estado]) => ({
           alumnoId,
           alumnoNombre: data.alumnos.find(a => a.id === alumnoId)?.nombre,
-          status: asistio ? 'Asistió' : 'Falta'
+          status:       ESTADO_ASISTENCIA[estado]?.status || 'Falta',
         }))
       }
       
       const response = await fetch(CONFIG.WEBHOOK_URL, {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body:    JSON.stringify(payload)
       })
       
       if (!response.ok) throw new Error('Error al guardar')
@@ -761,13 +830,13 @@ export default function App() {
   const handleReset = () => {
     const fechaHoy = getFechaHoyMexico()
     setFormData({
-      fecha: fechaHoy, // ✅ Reset a fecha actual en México
-      tipoClase: getTipoClaseDefault(fechaHoy), // ✅ Default por día (viernes → lectura)
-      maestroId: '', // ✅ Sin maestro pre-seleccionado
-      grupoId: '',
-      tipo: '',
-      temaId: '',
-      sesion: 1,
+      fecha:         fechaHoy,
+      tipoClase:     getTipoClaseDefault(fechaHoy),
+      maestroId:     '',
+      grupoId:       '',
+      tipo:          '',
+      temaId:        '',
+      sesion:        1,
       totalSesiones: 2,
     })
     setAsistencia({})
