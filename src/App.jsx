@@ -325,7 +325,7 @@ function PantallaConfiguracion({ onNext, formData, setFormData, data }) {
   const tiposSesion = [
     { value: 'Temario', label: 'Temario', icon: <BookOpen className="w-4 h-4" /> },
     { value: 'Práctica', label: 'Práctica', icon: <Gamepad2 className="w-4 h-4" /> },
-    { value: 'Evaluación', label: 'Repaso', icon: <ClipboardList className="w-4 h-4" /> },
+    { value: 'Repaso', label: 'Repaso', icon: <ClipboardList className="w-4 h-4" /> },
     { value: 'Torneo', label: 'Torneo', icon: <Trophy className="w-4 h-4" /> },
   ]
   
