@@ -325,18 +325,22 @@ function PantallaConfiguracion({ onNext, formData, setFormData, data }) {
   const tiposSesion = [
     { value: 'Temario', label: 'Temario', icon: <BookOpen className="w-4 h-4" /> },
     { value: 'Práctica', label: 'Práctica', icon: <Gamepad2 className="w-4 h-4" /> },
-    { value: 'Evaluación', label: 'Evaluación', icon: <ClipboardList className="w-4 h-4" /> },
+    { value: 'Evaluación', label: 'Repaso', icon: <ClipboardList className="w-4 h-4" /> },
     { value: 'Torneo', label: 'Torneo', icon: <Trophy className="w-4 h-4" /> },
   ]
   
   const esLectura = formData.tipoClase === 'lectura'
   
-  const canContinue = formData.fecha && formData.tipoClase && formData.maestroId && (
-    esLectura
-      ? true
-      : (formData.grupoId && formData.tipo && 
-         (formData.tipo !== 'Temario' || (formData.temaId && formData.sesion && formData.totalSesiones)))
-  )
+const canContinue = formData.fecha && formData.tipoClase && formData.maestroId && (
+  esLectura
+    ? true
+    : (formData.grupoId && formData.tipo && 
+       (formData.tipo === 'Temario' 
+         ? (formData.temaId && formData.sesion && formData.totalSesiones)
+         : formData.tipo === 'Repaso'
+           ? formData.temaId
+           : true))
+)
   
   return (
     <div className="space-y-4 animate-fade-in">
@@ -432,53 +436,56 @@ function PantallaConfiguracion({ onNext, formData, setFormData, data }) {
         </Card>
       )}
       
-      {/* Tema y sesión: solo para Temario */}
-      {!esLectura && formData.tipo === 'Temario' && (
-        <Card className="p-4 space-y-4">
-          <Select
-            label="Tema"
-            value={formData.temaId}
-            onChange={(v) => setFormData({ ...formData, temaId: v })}
-            options={temasDelNivel.map(t => ({ value: t.id, label: t.nombre }))}
-            icon={BookOpen}
+{/* Tema: para Temario y Repaso */}
+{!esLectura && (formData.tipo === 'Temario' || formData.tipo === 'Repaso') && (
+  <Card className="p-4 space-y-4">
+    <Select
+      label="Tema"
+      value={formData.temaId}
+      onChange={(v) => setFormData({ ...formData, temaId: v })}
+      options={temasDelNivel.map(t => ({ value: t.id, label: t.nombre }))}
+      icon={BookOpen}
+    />
+    
+    {formData.tipo === 'Temario' && (
+      <>
+        <div className="grid grid-cols-2 gap-4">
+          <NumberInput
+            label="Sesión #"
+            value={formData.sesion}
+            onChange={(v) => setFormData({ ...formData, sesion: v })}
+            min={1}
+            max={formData.totalSesiones}
           />
-          
-          <div className="grid grid-cols-2 gap-4">
-            <NumberInput
-              label="Sesión #"
-              value={formData.sesion}
-              onChange={(v) => setFormData({ ...formData, sesion: v })}
-              min={1}
-              max={formData.totalSesiones}
+          <NumberInput
+            label="de total"
+            value={formData.totalSesiones}
+            onChange={(v) => setFormData({ ...formData, totalSesiones: v, sesion: Math.min(formData.sesion, v) })}
+            min={1}
+            max={5}
+          />
+        </div>
+        
+        <div className="flex gap-1.5 pt-2">
+          {Array.from({ length: formData.totalSesiones }, (_, i) => (
+            <div
+              key={i}
+              className={`flex-1 h-2 rounded-full transition-colors ${
+                i < formData.sesion ? 'bg-gambito-green' : 'bg-gray-200'
+              }`}
             />
-            <NumberInput
-              label="de total"
-              value={formData.totalSesiones}
-              onChange={(v) => setFormData({ ...formData, totalSesiones: v, sesion: Math.min(formData.sesion, v) })}
-              min={1}
-              max={5}
-            />
-          </div>
-          
-          <div className="flex gap-1.5 pt-2">
-            {Array.from({ length: formData.totalSesiones }, (_, i) => (
-              <div
-                key={i}
-                className={`flex-1 h-2 rounded-full transition-colors ${
-                  i < formData.sesion ? 'bg-gambito-green' : 'bg-gray-200'
-                }`}
-              />
-            ))}
-          </div>
-          <p className="text-center text-sm text-gambito-gray">
-            {formData.sesion === formData.totalSesiones 
-              ? '✓ Última sesión - Se marcará como completado'
-              : `Sesión ${formData.sesion} de ${formData.totalSesiones}`
-            }
-          </p>
-        </Card>
-      )}
-      
+          ))}
+        </div>
+        <p className="text-center text-sm text-gambito-gray">
+          {formData.sesion === formData.totalSesiones 
+            ? '✓ Última sesión - Se marcará como completado'
+            : `Sesión ${formData.sesion} de ${formData.totalSesiones}`
+          }
+        </p>
+      </>
+    )}
+  </Card>
+)}
       <Button onClick={onNext} disabled={!canContinue} className="w-full">
         Pasar asistencia
         <ChevronRight className="w-5 h-5" />
@@ -783,7 +790,7 @@ export default function App() {
     try {
       const esLectura = formData.tipoClase === 'lectura'
       const grupo     = esLectura ? null : data.grupos.find(g => g.id === formData.grupoId)
-      const tema      = !esLectura && formData.tipo === 'Temario' 
+      const tema      = !esLectura && (formData.tipo === 'Temario' || formData.tipo === 'Repaso')
         ? data.temas.find(t => t.id === formData.temaId)
         : null
       
