@@ -38,6 +38,14 @@ const ESTADO_ASISTENCIA = {
   justificada: { siguiente: 'presente',    status: 'Falta justificada', label: 'Falta avisada', labelCorto: '⚠️' },
 }
 
+const MODULOS_ORDEN = [
+  'Peón 1', 'Peón 2',
+  'Caballo 1', 'Caballo 2',
+  'Alfil 1', 'Alfil 2',
+  'Torre 1', 'Torre 2',
+  'Rey/Reina',
+]
+
 // =============================================================================
 // UTILIDADES
 // =============================================================================
@@ -101,7 +109,7 @@ function Button({ children, onClick, variant = 'primary', disabled = false, load
   )
 }
 
-function Select({ label, value, onChange, options, icon: Icon }) {
+function Select({ label, value, onChange, options, groups, icon: Icon }) {
   return (
     <div className="space-y-2">
       <label className="block text-sm font-medium text-gambito-gray">{label}</label>
@@ -117,9 +125,18 @@ function Select({ label, value, onChange, options, icon: Icon }) {
           className={`w-full ${Icon ? 'pl-11' : 'pl-4'} pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-gambito-dark font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-gambito-green/30 focus:border-gambito-green transition-all`}
         >
           <option value="">Seleccionar...</option>
-          {options.map(opt => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
+          {groups
+            ? groups.map(g => (
+                <optgroup key={g.label} label={g.label}>
+                  {g.options.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </optgroup>
+              ))
+            : options?.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))
+          }
         </select>
         <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gambito-gray">
           <ChevronRight className="w-5 h-5 rotate-90" />
@@ -313,8 +330,26 @@ function PantallaConfiguracion({ onNext, formData, setFormData, data }) {
   })
   
   const grupoSeleccionado = grupos.find(g => g.id === formData.grupoId)
-  const temasDelNivel = grupoSeleccionado 
-    ? temas.filter(t => t.nivel === grupoSeleccionado.nivel)
+  const idxActual = MODULOS_ORDEN.indexOf(grupoSeleccionado?.nivel)
+  const esRepaso = formData.tipo === 'Repaso'
+
+  // Repaso: módulo actual + módulo anterior inmediato, agrupados
+  const temasAgrupados = (grupoSeleccionado && esRepaso)
+    ? MODULOS_ORDEN
+        .slice(Math.max(0, idxActual - 1), idxActual + 1)
+        .reverse()
+        .map(mod => ({
+          label: mod === grupoSeleccionado.nivel ? `${mod} — módulo actual` : mod,
+          options: temas
+            .filter(t => t.nivel === mod)
+            .map(t => ({ value: t.id, label: t.nombre })),
+        }))
+        .filter(g => g.options.length > 0)
+    : null
+
+  // Temario: solo temas del módulo actual, sin agrupar
+  const temasActuales = (grupoSeleccionado && !esRepaso)
+    ? temas.filter(t => t.nivel === grupoSeleccionado.nivel).map(t => ({ value: t.id, label: t.nombre }))
     : []
   
   const tiposClase = [
@@ -443,7 +478,8 @@ const canContinue = formData.fecha && formData.tipoClase && formData.maestroId &
       label="Tema"
       value={formData.temaId}
       onChange={(v) => setFormData({ ...formData, temaId: v })}
-      options={temasDelNivel.map(t => ({ value: t.id, label: t.nombre }))}
+      groups={temasAgrupados}
+      options={temasActuales}
       icon={BookOpen}
     />
     
@@ -808,12 +844,20 @@ export default function App() {
         totalSesiones:  !esLectura && formData.tipo === 'Temario' ? formData.totalSesiones : null,
         temaCompletado: !esLectura && formData.tipo === 'Temario' && formData.sesion === formData.totalSesiones,
         notas:          notas,
-        // Mapear estado → status para Notion/Supabase
-        asistencia: Object.entries(asistencia).map(([alumnoId, estado]) => ({
-          alumnoId,
-          alumnoNombre: data.alumnos.find(a => a.id === alumnoId)?.nombre,
-          status:       ESTADO_ASISTENCIA[estado]?.status || 'Falta',
-        }))
+        // Mapear estado → status para Notion/Supabase.
+        // Para lectura: invitados (sin plan ajedrez_lectura) solo se registran si asistieron.
+        asistencia: Object.entries(asistencia)
+          .filter(([alumnoId, estado]) => {
+            if (!esLectura) return true
+            const alumno = data.alumnos.find(a => a.id === alumnoId)
+            if (alumno?.plan !== 'ajedrez_lectura') return estado === 'presente'
+            return true
+          })
+          .map(([alumnoId, estado]) => ({
+            alumnoId,
+            alumnoNombre: data.alumnos.find(a => a.id === alumnoId)?.nombre,
+            status:       ESTADO_ASISTENCIA[estado]?.status || 'Falta',
+          }))
       }
       
       const response = await fetch(CONFIG.WEBHOOK_URL, {
